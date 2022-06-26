@@ -45,5 +45,12 @@ nPreds = 300
 
 println("Accuracy(%): ",sum(preds.==testLabels[1:length(preds)])/nPreds*100|>(x->round(x,digits=1)))
 
-# 
+# Why does the k-NN model work so well? The numbers must be well separated in the 784-dimensional space
+# Make a T-SNE plot to show that. T-SNE plots take awhile. About 20 secs/1000 data points here
+# Check out these related sites: 
+# https://github.com/lejon/TSne.jl
+# https://distill.pub/2016/misread-tsne/
 using TSne
+@time Y = tsne(train[1:1000,:], 2, 50, 1000, 20.0)
+scatter(Y[:,1], Y[:,2], marker=(2,3,"*",stroke(0)), color=Int.(labels[1:size(Y,1)]),
+        aspect_ratio=1,legend=:none)

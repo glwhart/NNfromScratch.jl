@@ -17,7 +17,7 @@ trainLabels, testLabels = labels[1:60_000],labels[60_001:end]
 
 train = data[:,:,1:60_000]
 test = data[:,:,60_001:end]
-e
+
 function showImg(arr)
     return Gray.(arr[:,:]')
 end
@@ -52,7 +52,7 @@ Y = tsne(play,2,50,1000,20.0)
 scatter(Y[:,1], Y[:,2], marker=(2,2,"*",stroke(0)), 
 color=Int.(labels[1:size(Y,1)]),aspect_ratio=1,legend=:none)
 
-
+dm=dm'
 
 
 # Let's make a NN: Input layer with 784 nodes, fully connected with two hidden layers, 10 neurons each, 10 outputs.
@@ -75,6 +75,7 @@ function reLU(x)
 end
 
 # Illustrate the steps
+w1,b1,w2,b2 = initWeights()
 A0 = reshape(train[:,:,1],28*28)
 z1 = w1*A0+b1
 A1 = reLU.(z1)
@@ -92,10 +93,10 @@ function forwardPropogation(features,w1,b1,w2,b2)
     A1 = reLU.(z1)
     z2 = w2*A1.+b2
     A2 = [softmax(i) for i ∈ eachcol(z2)]
-    return argmax.(A2).-1
+    return z1,A1,z2,A2
 end
 
-
+""" Convert a label to a one-hot vector """
 function one_hot(label)
     idx = label+1
     v = zeros(Int,10)
@@ -103,33 +104,35 @@ function one_hot(label)
     return v
 end
 
-function backprop(z1, A1, z2, w1, w2, feat, label)
+""" Calculate the parameter 'nudges' needed to reduce prediction errors """ 
+function backprop(z1, A1, z2, A2, w1, w2, feat, label)
     n = 1/length(label) # Use this to normalize sums
-    one_hot_label = one_hot(label)
-    dz2 = A2 - one_hot_label
-    dw2 = n*dz2*A2'
-    db2 = n*sum(dz2)
-    dz1 = w2'*dz2.*(z1 > 0)
-    dw1 = n*dz1*feat
-    db1 = n*sum(dz1)
+    one_hot_label = one_hot.(label)
+    dz2 = reduce(hcat,A2 - one_hot_label)
+    dw2 = n*dz2*A1'
+    db2 = n*sum(dz2,dims=2)
+    dz1 = w2'*dz2.*(z1 .> 0)
+    dw1 = n*dz1*feat'
+    db1 = n*sum(dz1,dims=2)
     return dw1, db1, dw2, db2
 end
 
 """
-    Update to parameters to improve predions. α is the learning rate
+    Update to parameters to improve predictions. α is the learning rate
 """
-function updateParameters(z1,b1,z2,b2,dz1,db1,dz2,db2,α=0.1)
-    z1 = z1 - α*dz1
+function updateParameters(w1,b1,w2,b2,dw1,db1,dw2,db2,α=0.1)
+    w1 = w1 - α*dw1
     b1 = b1 - α*db1
-    z2 = z2 - α*dz2
+    w2 = w2 - α*dw2
     b2 = b2 - α*db2
-    return z1,b1,z2,b2
+    return w1,b1,w2,b2
 end
 
+""" Learn parameters from data """
 function gradientDescent(features,labels,nIters,α=0.1)
     w1,b1,w2,b2 = initWeights()
     for it ∈ 1:nIters
-        z1, A1, z2, A2 = forwardPropogation(train,w1,b1,w2,b2)
+        z1, A1, z2, A2 = forwardPropogation(feat,w1,b1,w2,b2)
         dw1, db1, dw2, db2 = backPropogation(train, features, z1, A1, z2, A2)
         w1, b1, w2, b2 = updateParameters(w1, b1, w2, b2, dw1, db1, dw2, db2)
         if !mod(it,50)
